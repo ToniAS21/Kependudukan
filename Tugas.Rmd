@@ -1,0 +1,239 @@
+---
+title: "Teori Kependudukan"
+author: "Toni Andreas Susanto"
+date: "8/15/2022"
+output: 
+  rmdformats::readthedown:
+    theme: cosmo
+    highlight: tango
+    df_print: paged
+    number_sections: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Source Data
+
+- Data lingkup Indonesia dari [BPS](https://www.bps.go.id/indicator/12/2131/1/jumlah-penduduk-hasil-sp2020-menurut-wilayah-dan-jenis-kelamin.html) 
+
+- Data lingkup Global dari [World Population Review](https://worldpopulationreview.com/)
+
+# Library
+
+## Install Libraries
+
+Tanda pagar `#` bisa dihapus apabila belum mendonwload pustaka, ketika sudah selesai mendonwload bisa di kasih pagar lagi agar tidak terdonwload ulang kembali.
+
+```{r message=FALSE, warning=FALSE}
+# remotes::install_github('JohnCoene/echarts4r.maps')
+# install.packages(tidyverse)
+# install.packages(echarts4r)
+# install.packages("remotes")
+# install.packages(echarts4r.maps)
+# install.packages(readxl)
+# install.packages(htmlwidgets)
+# install.packages(janitor)
+```
+
+## Import Libraries
+
+```{r message=FALSE, warning=FALSE}
+# Buat baca file excel
+library(readxl)
+
+# Pengolahan data
+library(tidyverse)
+library(janitor)
+
+# Untuk dapatin map dan visualisasi
+library(echarts4r)
+library(echarts4r.maps)
+library(htmlwidgets)
+library(highcharter)
+library(mapdata)
+```
+
+
+# Map Chart
+
+## Global
+
+### Data Preparation
+
+**Read Data**
+
+```{r}
+df <- read.csv("csvData.csv")
+
+# Melihat data
+df 
+```
+
+**Add New Column**
+
+Membuat kolom baru yang berisi perubahan skala nilai agar memudahkan pembaca. 
+
+`Dari 131000 -> 131K`
+
+```{r}
+df$`Population 2020` <- df$pop2020/1000
+```
+
+
+### Visualization
+
+```{r}
+plot_map <- 
+        df %>%
+        e_charts(name) %>% 
+        e_map(`Population 2020`, map = "world") %>% 
+        e_visual_map(`Population 2020`) %>% 
+        e_tooltip(trigger = "item",        
+                  formatter = JS("
+                                 function(params){return(
+                                 '<b>' + params.name
+                                 + ':' + '</b>' +
+                                 (params.value).toLocaleString('en-US',
+                                 {maximumFractionDigits: 2, minimumFractionDigits: 2 })
+                                 )}")) %>%
+  e_title(text = "Komposisi Populasi Dunia Pada Tahun 2022 (dalam juta)") %>%
+  e_theme("vintage")
+
+plot_map
+```
+
+## Country (Indonesia)
+
+### Data Preparation
+
+```{r}
+# Membaca file Excel
+indo <- read_excel("Jumlah Penduduk Hasil SP2020 menurut Wilayah dan Jenis Kelamin.xlsx")
+
+# Menghapus kolom 35
+indo <- indo[-c(35),]
+
+# Menormalisasi skala data
+indo$Jumlah <- as.numeric(indo$Jumlah)
+indo$Jumlah_nor <- indo$Jumlah/1000000
+
+# Melihat Data
+indo 
+```
+
+### Visualization
+
+```{r}
+indo_map <- 
+indo %>%
+        e_charts(Province) %>%
+        em_map("Indonesia") %>%
+        e_map(Jumlah_nor, map = "Indonesia") %>% 
+        e_visual_map(Jumlah_nor) %>% 
+  e_tooltip(trigger = "item",        
+                  formatter = JS("
+                                 function(params){return(
+                                 '<b>' + params.name
+                                 + ':' + '</b>' +
+                                 (params.value).toLocaleString('en-US',
+                                 {maximumFractionDigits: 2, minimumFractionDigits: 2 })
+                                 )}")) %>%
+  e_title(text = "Komposisi Populasi Indonesia Pada Tahun 2020 (dalam juta)") %>%
+  e_theme("vintage")
+
+indo_map
+```
+
+# Template Map 
+
+Isi garis ___
+
+```
+plot_map <- 
+        # ------------- Membuat map ---------------------
+        df %>%
+        e_charts(______) %>%  
+        e_map(______, map = "____") %>% 
+        e_visual_map(_____) %>% 
+        
+        
+       # -------------- Membuat Interactive -------------- (G usah diganti)
+        e_tooltip(trigger = "item",        
+                  formatter = JS("
+                                 function(params){return(
+                                 '<b>' + params.name
+                                 + ':' + '</b>' +
+                                 (params.value).toLocaleString('en-US',
+                                 {maximumFractionDigits: 2, minimumFractionDigits: 2 })
+                                 )}")) %>%
+      # -------------- Ganti Judul --------------------
+  e_title(text = "World Population Composition (In Milions)") %>%
+  
+  
+      # ------------- Ganti tema ------------- (Refrensi opsi tema dibawah)
+  e_theme("vintage")
+
+plot_map
+
+```
+
+# Line Chart
+
+## Data Preparation
+
+```{r}
+df_line <- 
+df %>% arrange(-pop2022) %>% 
+  head(5)
+
+df_line$cca2 <- NULL
+
+df_line <-as.data.frame(t(df_line)) %>% row_to_names(row_number = 1)
+```
+
+```{r}
+df_line_ok <- readxl::read_excel("data_ok.xlsx")
+
+df_line_ok <- 
+df_line_ok %>% mutate(
+ China = as.numeric(China),
+ India = as.numeric(India),
+`United States` = as.numeric(`United States`),
+ Indonesia = as.numeric(Indonesia),
+ Pakistan = as.numeric(Pakistan)
+) %>% arrange(Period)
+```
+
+## Visualization
+
+```{r}
+hc <- highchart() %>%
+      hc_xAxis(categories = df_line_ok$Period) %>% 
+hc_chart(type = "line") %>%
+    hc_title(text = "Tren Pertumbuhan Penduduk Top 5 Negara",
+             align = "center",
+             style = list(color = "black", useHTML = TRUE)) %>%
+    hc_subtitle(text = "Period 1970 - 2050",
+                align = "center",
+                style = list(color = "black", useHTML = TRUE)) %>%
+    hc_add_series(data = df_line_ok$China, name = "China") %>%
+    hc_add_series(data = df_line_ok$India, name = "India") %>%
+    hc_add_series(data = df_line_ok$`United States`, name = "United States") %>% 
+    hc_add_series(data = df_line_ok$Indonesia, name = "Indonesia") %>% 
+    hc_add_series(data = df_line_ok$Pakistan, name = "Pakistan") %>% 
+    hc_yAxis(labels = list(format = "{value:,.0f}")) %>% 
+    hc_colors(c("red","blue","green","purple","brown")) %>% 
+    hc_tooltip(enabled = TRUE, pointFormat = "{point.y:,.2f}") %>% 
+    hc_add_theme(hc_theme_ffx())
+
+hc
+```
+
+
+Refrensi Tema
+
+https://echarts4r.john-coene.com/reference/theme.html
+
